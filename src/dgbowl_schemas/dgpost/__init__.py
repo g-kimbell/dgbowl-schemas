@@ -1,22 +1,36 @@
+import importlib
 import logging
-from . import recipe
+
 from pydantic import ValidationError
-from .recipe_2_2 import Recipe as Recipe_2_2
-from .recipe_2_1 import Recipe as Recipe_2_1
-from .recipe_1_0 import Recipe as Recipe_1_0
 
 logger = logging.getLogger(__name__)
 
-models = {
-    "2.2": Recipe_2_2,
-    "2.1": Recipe_2_1,
-    "1.0": Recipe_1_0,
+_versions = {
+    "2.2": "recipe_2_2",
+    "2.1": "recipe_2_1",
+    "1.0": "recipe_1_0",
 }
+
+
+def _load(ver: str):
+    """Import a recipe model from its version."""
+    return importlib.import_module(f".{_versions[ver]}", __name__).Recipe
+
+
+def __getattr__(name: str):
+    """Lazy import recipes and modules."""
+    if name == "recipe":
+        return importlib.import_module(f".{name}", __name__)
+    if name == "models":
+        return {ver: _load(ver) for ver in _versions}
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
 
 
 def to_recipe(**kwargs):
     firste = None
-    for ver, Model in models.items():
+    for ver in _versions:
+        Model = _load(ver)
         try:
             payload = Model(**kwargs)
             return payload

@@ -1,28 +1,39 @@
-from pydantic import ValidationError
+import importlib
 import logging
-from . import payload
-from .payload_0_1 import Payload as Payload_0_1
-from .payload_0_2 import Payload as Payload_0_2
-from .payload_1_0 import Payload as Payload_1_0
-from .payload_2_0 import Payload as Payload_2_0
-from .payload_2_1 import Payload as Payload_2_1
-from .payload_2_2 import Payload as Payload_2_2
+
+from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)
 
-models = {
-    "2.2": Payload_2_2,
-    "2.1": Payload_2_1,
-    "2.0": Payload_2_0,
-    "1.0": Payload_1_0,
-    "0.2": Payload_0_2,
-    "0.1": Payload_0_1,
+_versions = {
+    "2.2": "payload_2_2",
+    "2.1": "payload_2_1",
+    "2.0": "payload_2_0",
+    "1.0": "payload_1_0",
+    "0.2": "payload_0_2",
+    "0.1": "payload_0_1",
 }
+
+
+def _load(ver: str):
+    """Import a payload model from its version."""
+    return importlib.import_module(f".{_versions[ver]}", __name__).Payload
+
+
+def __getattr__(name: str):
+    """Lazy import payload/model."""
+    if name == "payload":
+        return importlib.import_module(f".{name}", __name__)
+    if name == "models":
+        return {ver: _load(ver) for ver in _versions}
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
 
 
 def to_payload(**kwargs):
     firste = None
-    for ver, Model in models.items():
+    for ver in _versions:
+        Model = _load(ver)
         try:
             payload = Model(**kwargs)
             return payload

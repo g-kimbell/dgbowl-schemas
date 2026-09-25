@@ -1,34 +1,44 @@
+import importlib
 import logging
-from . import dataschema
+
 from pydantic import ValidationError
-from .dataschema_7_0 import DataSchema as DataSchema_7_0
-from .dataschema_6_0 import DataSchema as DataSchema_6_0
-from .dataschema_5_1 import DataSchema as DataSchema_5_1
-from .dataschema_5_0 import DataSchema as DataSchema_5_0, Metadata as Metadata_5_0
-from .dataschema_4_2 import DataSchema as DataSchema_4_2, Metadata as Metadata_4_2
-from .dataschema_4_1 import DataSchema as DataSchema_4_1, Metadata as Metadata_4_1
-from .dataschema_4_0 import DataSchema as DataSchema_4_0, Metadata as Metadata_4_0
-from .dataschema_3_1 import DataSchema as DataSchema_3_1
 
 logger = logging.getLogger(__name__)
 
-models = {
-    "7.0": (DataSchema_7_0, None),
-    "6.0": (DataSchema_6_0, None),
-    "5.1": (DataSchema_5_1, None),
-    "5.0": (DataSchema_5_0, Metadata_5_0),
-    "4.2": (DataSchema_4_2, Metadata_4_2),
-    "4.1": (DataSchema_4_1, Metadata_4_1),
-    "4.0": (DataSchema_4_0, Metadata_4_0),
-    "3.1": (DataSchema_3_1, None),
+# Version -> (submodule, whether it defines a separate Metadata model).
+_versions = {
+    "7.0": ("dataschema_7_0", False),
+    "6.0": ("dataschema_6_0", False),
+    "5.1": ("dataschema_5_1", False),
+    "5.0": ("dataschema_5_0", True),
+    "4.2": ("dataschema_4_2", True),
+    "4.1": ("dataschema_4_1", True),
+    "4.0": ("dataschema_4_0", True),
+    "3.1": ("dataschema_3_1", False),
 }
+
+
+def _load(ver: str):
+    """Import a (DataSchema, Metadata) from its version."""
+    name, has_metadata = _versions[ver]
+    mod = importlib.import_module(f".{name}", __name__)
+    return mod.DataSchema, mod.Metadata if has_metadata else None
+
+
+def __getattr__(name):
+    """Lazy import dataschema/models."""
+    if name == "dataschema":
+        return importlib.import_module(f".{name}", __name__)
+    if name == "models":
+        return {ver: _load(ver) for ver in _versions}
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def to_dataschema(**kwargs):
     # figure out matching Metadata -> identify correct Model:
     errors = ["Could not parse 'kwargs['metadata']' using any Metadata!", ""]
-    for ver, tup in models.items():
-        Model, Metadata = tup
+    for ver in _versions:
+        Model, Metadata = _load(ver)
         try:
             if Metadata is None:
                 schema = Model(**kwargs)
