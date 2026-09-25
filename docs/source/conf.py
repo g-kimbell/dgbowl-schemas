@@ -10,11 +10,16 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import importlib
 import os
 import sys
 from importlib.metadata import version as get_version
 
 sys.path.insert(0, os.path.abspath(os.path.join("..", "..", "src")))
+
+# Import all schemas before autodoc adds string annotations
+for pkg in ("dgpost", "tomato", "yadg"):
+    _ = importlib.import_module(f"dgbowl_schemas.{pkg}").models
 
 version = get_version("dgbowl_schemas")
 
