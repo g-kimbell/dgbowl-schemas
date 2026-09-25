@@ -31,6 +31,15 @@ def __getattr__(name):
         return importlib.import_module(f".{name}", __name__)
     if name == "models":
         return {ver: _load(ver) for ver in _versions}
+    # Versioned aliases, e.g. DataSchema_7_0 or Metadata_5_0.
+    prefix, _, ver = name.partition("_")
+    ver = ver.replace("_", ".")
+    if ver in _versions:
+        schema, metadata = _load(ver)
+        if prefix == "DataSchema":
+            return schema
+        if prefix == "Metadata" and metadata is not None:
+            return metadata
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

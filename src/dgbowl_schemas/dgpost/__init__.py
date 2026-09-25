@@ -23,6 +23,11 @@ def __getattr__(name: str):
         return importlib.import_module(f".{name}", __name__)
     if name == "models":
         return {ver: _load(ver) for ver in _versions}
+    # Versioned aliases, e.g. Recipe_2_2.
+    prefix, _, ver = name.partition("_")
+    ver = ver.replace("_", ".")
+    if prefix == "Recipe" and ver in _versions:
+        return _load(ver)
     msg = f"module {__name__!r} has no attribute {name!r}"
     raise AttributeError(msg)
 
